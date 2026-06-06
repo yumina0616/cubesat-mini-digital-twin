@@ -43,13 +43,164 @@ The final goal of this project is to build a simplified CubeSat digital twin wit
 
 ### Step 1: Project Initialization
 
-Completed:
+Status: Completed
+
+Completed tasks:
 
 * Created the initial project folder structure
-* Added empty Python files for future implementation
+* Added empty Python modules for future implementation
 * Added `requirements.txt`
-* Added `main.py` as the future entry point
-* Prepared the project for step-by-step development
+* Added `main.py` as the project entry point
+* Added initial documentation in `README.md`
+
+---
+
+### Step 2: 2D Orbit Simulation
+
+Status: Completed
+
+In this step, a simplified 2D Low Earth Orbit simulation was implemented for a CubeSat at an altitude of approximately 400 km.
+
+Implemented files:
+
+* `src/orbit/orbital_constants.py`
+
+  * Defines physical constants such as Earth's gravitational parameter and Earth radius.
+
+* `src/orbit/orbit_simulator.py`
+
+  * Simulates the CubeSat's 2D orbital motion using Forward Euler numerical integration.
+
+* `src/utils/plot_utils.py`
+
+  * Generates plots for orbit trajectory, altitude over time, and speed over time.
+
+Simulation conditions:
+
+```text
+Orbit altitude: 400 km
+Orbit radius: 6,771 km
+Orbital speed: 7.67 km/s
+Orbital period: 92.4 minutes
+Simulation duration: approximately 100 minutes
+```
+
+Generated result plots:
+
+* `results/orbit_plot.png`
+* `results/altitude_plot.png`
+* `results/speed_plot.png`
+
+---
+
+## Orbit Simulation
+
+The orbit simulation models a CubeSat moving around Earth in a simplified 2D inertial frame.
+
+The satellite state is represented by position and velocity vectors:
+
+```text
+r = [x, y]
+v = [vx, vy]
+```
+
+The gravitational acceleration is calculated using Newtonian gravity:
+
+```text
+a = -μr / |r|³
+```
+
+where:
+
+* `μ` is Earth's gravitational parameter
+* `r` is the satellite position vector from Earth's center
+* `|r|` is the distance between the satellite and Earth's center
+
+The simulator updates the satellite state over time using Forward Euler integration.
+
+---
+
+## Numerical Integration Method
+
+This project currently uses the Forward Euler method for orbit propagation.
+
+Forward Euler is simple and useful for understanding the basic idea of numerical simulation. However, it is not highly accurate for long-duration orbital simulations because numerical error accumulates over time.
+
+In the current 400 km Low Earth Orbit simulation, the altitude graph shows an accumulated error of approximately 50 km over about 6,000 seconds.
+
+This behavior is expected because Forward Euler does not conserve orbital energy well over long simulations.
+
+In future versions, the simulator will be improved using more accurate integration methods such as:
+
+* Runge-Kutta 4th order method
+* `scipy.integrate.solve_ivp`
+* More realistic perturbation models
+
+This limitation is intentionally documented to show the difference between a simple educational simulator and a more realistic aerospace simulation tool.
+
+---
+
+## Results from Step 2
+
+The initial 2D orbit simulation successfully produced the following results:
+
+| Quantity           |         Value |
+| ------------------ | ------------: |
+| Orbit altitude     |        400 km |
+| Orbit radius       |      6,771 km |
+| Orbital speed      |     7.67 km/s |
+| Orbital period     |      92.4 min |
+| Integration method | Forward Euler |
+
+The simulation confirms the basic behavior of a CubeSat in Low Earth Orbit. Although the orbit is not perfectly stable due to numerical integration error, the result is sufficient for the first version of the project.
+
+---
+
+## Updated Development Roadmap
+
+### Step 1. Project Initialization
+
+Status: Completed
+
+### Step 2. 2D Orbit Simulation
+
+Status: Completed
+
+Implemented:
+
+* Physical constants
+* Initial orbit conditions
+* Forward Euler integration
+* Orbit trajectory plotting
+* Altitude plotting
+* Speed plotting
+
+### Step 3. Attitude Control
+
+Status: Planned
+
+Next step:
+
+* Implement a simplified 1-axis attitude dynamics model
+* Implement a PID controller
+* Simulate attitude stabilization
+* Generate attitude response and control input plots
+
+### Step 4. Telemetry Generation
+
+Status: Planned
+
+### Step 5. Anomaly Detection
+
+Status: Planned
+
+### Step 6. Streamlit Dashboard
+
+Status: Planned
+
+### Step 7. Documentation and Portfolio Refinement
+
+Status: Planned
 
 ---
 
