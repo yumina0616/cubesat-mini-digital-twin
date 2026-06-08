@@ -21,6 +21,12 @@ def main():
     orbit_data = sim.run()
     plot_all_orbit(orbit_data)
 
+    from src.utils.plot_utils import plot_euler_vs_rk4
+
+    euler_data = OrbitSimulator(altitude=400_000, sim_time=6000, method='euler').run()
+    rk4_data   = OrbitSimulator(altitude=400_000, sim_time=6000, method='rk4').run()
+    plot_euler_vs_rk4(euler_data, rk4_data)
+
     # ── Step 3: 자세 제어 + PID ──────────────────────
     from src.attitude.attitude_model import AttitudeModel
     from src.attitude.pid_controller import PIDController
@@ -37,13 +43,18 @@ def main():
 
     plot_attitude_response(model.get_history(), pid.get_history())
 
-    # ── Step 4: 텔레메트리 생성 ──────────────────────
-    # from src.telemetry.telemetry_generator import TelemetryGenerator
-    # ...
+    # ── Step 4: 텔레메트리 + 이상 감지 ───────────────
+    from src.telemetry.telemetry_generator import TelemetryGenerator
+    from src.telemetry.anomaly_detector import AnomalyDetector
+
+    gen      = TelemetryGenerator(orbit_data, model.get_history(), sample_interval=10)
+    df       = gen.generate()
+    gen.save(df)
 
     # ── Step 5: 이상 감지 ────────────────────────────
-    # from src.telemetry.anomaly_detector import AnomalyDetector
-    # ...
+    detector = AnomalyDetector(df)
+    results  = detector.detect_all()
+    detector.print_report(results)
 
     print("\n[INFO] 대시보드 실행: streamlit run src/dashboard/app.py")
 

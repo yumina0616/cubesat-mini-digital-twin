@@ -178,3 +178,140 @@ def plot_all_orbit(data):
     plot_altitude(data)
     plot_speed(data)
     print("[plot] 전체 완료 ✓")
+
+
+# ═══════════════════════════════════════════════════════════════════
+# 자세 제어 그래프
+# ═══════════════════════════════════════════════════════════════════
+
+def plot_attitude_response(attitude_data, pid_data, save=True, filename='attitude_response.png'):
+    """
+    자세각 응답 그래프 + PID 성분 분해
+
+    상단: 자세각이 목표값(0°)으로 수렴하는 과정
+    하단: P, I, D 각 항이 얼마나 기여하는지
+    """
+    _ensure_results_dir()
+
+    time = attitude_data['time'][1:]   # 첫 스텝 제외 (pid 히스토리와 길이 맞춤)
+    angle = attitude_data['angle'][1:]
+
+    fig, axes = plt.subplots(2, 1, figsize=(10, 7), sharex=True)
+
+    # ── 위: 자세각 응답 ───────────────────────────────────────────
+    axes[0].plot(time, angle, color=ACCENT, linewidth=2, label='Attitude Angle')
+    axes[0].axhline(0, color=ACCENT2, linestyle='--', linewidth=1.2,
+                    alpha=0.8, label='Setpoint (0°)')
+    axes[0].fill_between(time, angle, 0, alpha=0.08, color=ACCENT)
+
+    # 수렴 시점 표시 (오차 < 1°)
+    converge_idx = np.where(np.abs(angle) < 1.0)[0]
+    if len(converge_idx) > 0:
+        t_conv = time[converge_idx[0]]
+        axes[0].axvline(t_conv, color=ACCENT3, linestyle=':', linewidth=1.2, alpha=0.7)
+        axes[0].text(t_conv + 0.2, np.max(np.abs(angle)) * 0.8,
+                     f'<1° at {t_conv:.1f}s', color=ACCENT3, fontsize=9)
+
+    axes[0].set_ylabel('Angle (deg)')
+    axes[0].set_title('CubeSat 1-Axis Attitude Control Response (PID)')
+    axes[0].legend(fontsize=9, framealpha=0.3)
+    axes[0].grid(True, alpha=0.3)
+
+    # ── 아래: PID 성분 ────────────────────────────────────────────
+    axes[1].plot(time, pid_data['P'], color=ACCENT,  linewidth=1.4, label='P term', alpha=0.85)
+    axes[1].plot(time, pid_data['I'], color=ACCENT2, linewidth=1.4, label='I term', alpha=0.85)
+    axes[1].plot(time, pid_data['D'], color=ACCENT3, linewidth=1.4, label='D term', alpha=0.85)
+    axes[1].plot(time, pid_data['output'], color='white', linewidth=1.8,
+                 linestyle='--', label='Total output', alpha=0.6)
+    axes[1].axhline(0, color='#30363d', linewidth=0.8)
+    axes[1].set_xlabel('Time (s)')
+    axes[1].set_ylabel('Torque (N·m)')
+    axes[1].legend(fontsize=9, framealpha=0.3, ncol=4)
+    axes[1].grid(True, alpha=0.3)
+
+    plt.tight_layout()
+    if save:
+        path = os.path.join(RESULTS_DIR, filename)
+        fig.savefig(path, dpi=150, bbox_inches='tight')
+        print(f"[plot] 저장 완료: {path}")
+    plt.close(fig)
+
+
+# ═══════════════════════════════════════════════════════════════════
+# Euler vs RK4 비교 그래프
+# ═══════════════════════════════════════════════════════════════════
+
+def plot_euler_vs_rk4(euler_data, rk4_data, save=True, filename='euler_vs_rk4.png'):
+    """
+    Euler와 RK4의 결과를 3개 패널로 비교합니다.
+
+    Panel 1: 고도 비교 — 두 방법의 고도 드리프트 차이
+    Panel 2: 에너지 보존 — 비역학적 에너지가 얼마나 유지되는지
+    Panel 3: 고도 오차 — RK4 대비 Euler의 절대 오차
+    """
+    _ensure_results_dir()
+
+    t_euler = euler_data['time'] / 60
+    t_rk4   = rk4_data['time']  / 60
+
+    alt_euler  = euler_data['altitude'] / 1000
+    alt_rk4    = rk4_data['altitude']  / 1000
+
+    # 에너지를 초기값 대비 상대 변화율(%)로 정규화
+    e0_euler = euler_data['energy'][0]
+    e0_rk4   = rk4_data['energy'][0]
+    energy_drift_euler = (euler_data['energy'] - e0_euler) / abs(e0_euler) * 100
+    energy_drift_rk4   = (rk4_data['energy']  - e0_rk4)  / abs(e0_rk4)  * 100
+
+    # 고도 오차 (RK4를 기준값으로)
+    alt_error = np.abs(alt_euler - alt_rk4)
+
+    fig, axes = plt.subplots(3, 1, figsize=(11, 9), sharex=True)
+
+    # ── Panel 1: 고도 ─────────────────────────────────────────────
+    axes[0].plot(t_euler, alt_euler, color=ACCENT3,  linewidth=1.6,
+                 label='Euler', alpha=0.85)
+    axes[0].plot(t_rk4,   alt_rk4,   color=ACCENT2,  linewidth=1.6,
+                 label='RK4',   alpha=0.85)
+    axes[0].set_ylabel('Altitude (km)')
+    axes[0].set_title('Euler vs RK4 — Numerical Integration Comparison')
+    axes[0].legend(fontsize=9, framealpha=0.3)
+    axes[0].grid(True, alpha=0.3)
+
+    euler_drift = alt_euler[-1] - alt_euler[0]
+    rk4_drift   = alt_rk4[-1]  - alt_rk4[0]
+    axes[0].text(0.99, 0.05,
+                 f'Euler drift: {euler_drift:+.2f} km\nRK4 drift: {rk4_drift:+.4f} km',
+                 transform=axes[0].transAxes, ha='right', va='bottom',
+                 fontsize=9, color='#c9d1d9',
+                 bbox=dict(boxstyle='round', facecolor='#21262d', alpha=0.7))
+
+    # ── Panel 2: 에너지 보존 ──────────────────────────────────────
+    axes[1].plot(t_euler, energy_drift_euler, color=ACCENT3, linewidth=1.6,
+                 label='Euler', alpha=0.85)
+    axes[1].plot(t_rk4,   energy_drift_rk4,   color=ACCENT2, linewidth=1.6,
+                 label='RK4',   alpha=0.85)
+    axes[1].axhline(0, color='#30363d', linewidth=0.8)
+    axes[1].set_ylabel('Energy Drift (%)')
+    axes[1].legend(fontsize=9, framealpha=0.3)
+    axes[1].grid(True, alpha=0.3)
+
+    # ── Panel 3: 고도 오차 ────────────────────────────────────────
+    axes[2].plot(t_euler, alt_error, color=ACCENT, linewidth=1.5, alpha=0.85)
+    axes[2].fill_between(t_euler, alt_error, alpha=0.1, color=ACCENT)
+    axes[2].set_ylabel('Altitude Error (km)\n|Euler − RK4|')
+    axes[2].set_xlabel('Time (min)')
+    axes[2].grid(True, alpha=0.3)
+
+    max_err = alt_error.max()
+    axes[2].text(0.99, 0.95, f'Max error: {max_err:.2f} km',
+                 transform=axes[2].transAxes, ha='right', va='top',
+                 fontsize=9, color=ACCENT,
+                 bbox=dict(boxstyle='round', facecolor='#21262d', alpha=0.7))
+
+    plt.tight_layout()
+    if save:
+        path = os.path.join(RESULTS_DIR, filename)
+        fig.savefig(path, dpi=150, bbox_inches='tight')
+        print(f"[plot] 저장 완료: {path}")
+    plt.close(fig)
