@@ -109,8 +109,9 @@ def plot_altitude(data, save=True, filename='altitude_plot.png'):
     alt_min, alt_max = np.min(alt_km), np.max(alt_km)
     ax.fill_between(time_min, alt_min, alt_max,
                     color=ACCENT, alpha=0.08)
-    ax.text(time_min[-1] * 0.98, alt_max + 0.01,
-            f'Δ{(alt_max - alt_min):.3f} km', ha='right',
+    ax.text(0.98, 0.95,
+            f'Δ{(alt_max - alt_min):.4f} km', ha='right', va='top',
+            transform=ax.transAxes,
             fontsize=9, color=ACCENT3)
 
     ax.set_xlabel('Time (min)')

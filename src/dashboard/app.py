@@ -70,11 +70,12 @@ def run_orbit(altitude_km, sim_time_min, method):
 
 
 @st.cache_data(show_spinner=False)
-def run_attitude(initial_angle, kp, ki, kd):
+def run_attitude(initial_angle, kp, ki, kd, att_method='rk4'):
     from src.attitude.attitude_model import AttitudeModel
     from src.attitude.pid_controller import PIDController
     model = AttitudeModel(initial_angle=initial_angle,
-                          disturbance_std=1e-5, dt=0.01)
+                          disturbance_std=1e-5, dt=0.01,
+                          method=att_method)
     pid   = PIDController(Kp=kp, Ki=ki, Kd=kd, dt=0.01,
                           output_limit=0.05, integral_limit=5.0)
     for _ in range(int(30.0 / 0.01)):
@@ -119,11 +120,18 @@ with st.sidebar:
     st.divider()
     st.subheader("Attitude Control")
     initial_angle = st.slider("Initial Angle (deg)", -90, 90, 30, 5)
+    att_method = st.radio(
+        "Attitude integrator",
+        options=["rk4", "euler"],
+        format_func=lambda x: "RK4 (recommended)" if x == "rk4" else "Euler (may diverge at large dt)",
+        index=0,
+    )
     st.caption("PID Gains")
     kp = st.number_input("Kp", 0.0, 2.0, 0.4, 0.05)
     ki = st.number_input("Ki", 0.0, 0.1, 0.005, 0.001, format="%.3f")
     kd = st.number_input("Kd", 0.0, 0.5, 0.05,  0.005, format="%.3f")
 
+    st.divider()
     st.divider()
     run_btn = st.button("Run Simulation", use_container_width=True, type="primary")
 
@@ -133,7 +141,7 @@ if "sim_done" not in st.session_state:
 
 if run_btn:
     st.session_state.sim_done = True
-    st.session_state.params = (altitude_km, sim_time_min, method, initial_angle, kp, ki, kd)
+    st.session_state.params = (altitude_km, sim_time_min, method, initial_angle, kp, ki, kd, att_method)
 
 # ════════════════════════════════════════════════════════════════════
 # Main
@@ -145,21 +153,21 @@ if not st.session_state.sim_done:
     st.stop()
 
 p = st.session_state.params
-altitude_km, sim_time_min, method, initial_angle, kp, ki, kd = p
+altitude_km, sim_time_min, method, initial_angle, kp, ki, kd, att_method = p
 
 with st.spinner("Running simulation..."):
-    orbit_data, sim   = run_orbit(altitude_km, sim_time_min, method)
-    attitude_data, pid_data = run_attitude(initial_angle, kp, ki, kd)
-    df, anomaly       = run_telemetry(*p)
+    orbit_data, sim         = run_orbit(altitude_km, sim_time_min, method)
+    attitude_data, pid_data = run_attitude(initial_angle, kp, ki, kd, att_method)
+    df, anomaly             = run_telemetry(*p[:7])
 
 # ── KPI cards ─────────────────────────────────────────────────────
 c1, c2, c3, c4, c5, c6 = st.columns(6)
-c1.metric("Altitude",     f"{altitude_km} km")
-c2.metric("Integrator",   method.upper())
-c3.metric("Avg Battery",  f"{df['battery_pct'].mean():.1f}%")
-c4.metric("Avg Temp",     f"{df['temperature_c'].mean():.1f} C")
-c5.metric("GS Contact",   f"{df['ground_contact'].sum()} pts")
-c6.metric("Anomalies",    f"{anomaly['summary']['anomaly_rows']} pts",
+c1.metric("Altitude",        f"{altitude_km} km")
+c2.metric("Orbit Integrator", method.upper())
+c3.metric("Att. Integrator",  att_method.upper())
+c4.metric("Avg Battery",     f"{df['battery_pct'].mean():.1f}%")
+c5.metric("GS Contact",      f"{df['ground_contact'].sum()} pts")
+c6.metric("Anomalies",       f"{anomaly['summary']['anomaly_rows']} pts",
           delta=f"{anomaly['summary']['anomaly_rate']:.1f}%",
           delta_color="inverse")
 
@@ -301,7 +309,10 @@ with tab3:
     att_angle = attitude_data['angle'][1:]
 
     fig = make_subplots(rows=2, cols=1, shared_xaxes=True,
-                        subplot_titles=("Attitude Angle (deg)", "Control Torque (N·m)"))
+                        subplot_titles=(
+                            f"Attitude Angle (deg) — {att_method.upper()}",
+                            "Control Torque (N·m)"
+                        ))
 
     fig.add_trace(go.Scatter(x=att_time, y=att_angle,
                              line=dict(color=C_BLUE, width=2), name="Angle"), row=1, col=1)
