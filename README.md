@@ -1,299 +1,113 @@
-# 🛰️CubeSat Mini Digital Twin
+# CubeSat Mini Digital Twin
+
+A personal aerospace software project that simulates a simplified CubeSat system — from orbital mechanics to attitude control, telemetry, and anomaly detection — through an interactive digital twin dashboard.
+
+---
 
 ## Overview
 
-**CubeSat Mini Digital Twin** is a personal aerospace software project that aims to simulate a simplified CubeSat system.
+This project connects software engineering with aerospace concepts by building a complete simulation pipeline for a small satellite.
 
-The project will integrate basic aerospace software components such as:
-
-* 2D orbital simulation
-* 1-axis attitude control
-* Telemetry data generation
-* Rule-based anomaly detection
-* Streamlit-based digital twin dashboard
-
-The main goal of this project is to explore how software can be used to model, control, monitor, and visualize a small satellite system.
+The system models:
+- 2D orbital dynamics with real TLE data support
+- 1-axis attitude control using a PID controller
+- Subsystem telemetry (battery, temperature, communication)
+- Rule-based anomaly detection
+- An interactive Streamlit dashboard
 
 ---
 
 ## Motivation
 
-I am interested in aerospace software development, especially in areas such as GNC, simulation, embedded systems, and digital twin technologies.
+I am interested in aerospace software development, particularly in GNC, simulation, and digital twin technologies. Before joining a university lab focused on space mobility and digital twin research, I built this project to understand the basic software architecture of a satellite system from first principles.
 
-Before joining a university lab related to space mobility and digital twin research, I started this project to build a small but meaningful software system that connects programming with aerospace engineering concepts.
-
-This project is designed as a learning-oriented portfolio project for understanding the basic workflow of aerospace software systems.
+The emphasis is on implementing the physics directly rather than relying on high-level libraries — and on understanding the tradeoffs between different numerical methods through hands-on experimentation.
 
 ---
 
-## Project Goals
-
-The final goal of this project is to build a simplified CubeSat digital twin with the following features:
-
-1. Simulate a 2D CubeSat orbit around Earth
-2. Implement a 1-axis attitude control system using PID control
-3. Generate telemetry data from the simulated satellite system
-4. Model basic satellite states such as battery, temperature, and communication availability
-5. Detect abnormal conditions using rule-based logic
-6. Visualize satellite states through a Streamlit dashboard
+## Demo
+![Dashboard screenshot](results/dashboard_screenshot.png)
 
 ---
 
-## Current Progress
+## Results
 
-### Step 1: Project Initialization
+### Orbit Simulation — Euler vs RK4
 
-Status: Completed
+![Euler vs RK4](results/euler_vs_rk4.png)
 
-Completed tasks:
+Both integrators use identical initial conditions at 400 km LEO. Over a 100-minute simulation:
 
-* Created the initial project folder structure
-* Added empty Python modules for future implementation
-* Added `requirements.txt`
-* Added `main.py` as the project entry point
-* Added initial documentation in `README.md`
+| Method | Altitude Drift | Energy Drift |
+|---|---|---|
+| Forward Euler | +97.74 km | +1.49% |
+| RK4 | 0.0000 km | 0.000000% |
 
----
+RK4 eliminates the energy conservation error that causes Forward Euler orbits to spiral outward over time.
 
-### Step 2: 2D Orbit Simulation
+### Attitude Control — PID Response
+![PID Response](results/attitude_response.png)
 
-Status: Completed
+1-axis attitude stabilization from 30° to 0° using a PID controller:
 
-In this step, a simplified 2D Low Earth Orbit simulation was implemented for a CubeSat at an altitude of approximately 400 km.
-
-Implemented files:
-
-* `src/orbit/orbital_constants.py`
-
-  * Defines physical constants such as Earth's gravitational parameter and Earth radius.
-
-* `src/orbit/orbit_simulator.py`
-
-  * Simulates the CubeSat's 2D orbital motion using Forward Euler numerical integration.
-
-* `src/utils/plot_utils.py`
-
-  * Generates plots for orbit trajectory, altitude over time, and speed over time.
-
-Simulation conditions:
-
-```text
-Orbit altitude: 400 km
-Orbit radius: 6,771 km
-Orbital speed: 7.67 km/s
-Orbital period: 92.4 minutes
-Simulation duration: approximately 100 minutes
-```
-
-Generated result plots:
-
-* `results/orbit_plot.png`
-* `results/altitude_plot.png`
-* `results/speed_plot.png`
+| Parameter | Value |
+|---|---|
+| Initial angle | 30° |
+| Convergence to ±1° | 0.48 s |
+| Convergence to ±0.1° | 0.59 s |
+| PID gains | Kp=0.4, Ki=0.005, Kd=0.05 |
+| Max torque | ±0.05 N·m |
 
 ---
 
-## Orbit Simulation
-
-The orbit simulation models a CubeSat moving around Earth in a simplified 2D inertial frame.
-
-The satellite state is represented by position and velocity vectors:
-
-```text
-r = [x, y]
-v = [vx, vy]
-```
-
-The gravitational acceleration is calculated using Newtonian gravity:
-
-```text
-a = -μr / |r|³
-```
-
-where:
-
-* `μ` is Earth's gravitational parameter
-* `r` is the satellite position vector from Earth's center
-* `|r|` is the distance between the satellite and Earth's center
-
-The simulator updates the satellite state over time using Forward Euler integration.
-
----
-
-## Numerical Integration Method
-
-This project currently uses the Forward Euler method for orbit propagation.
-
-Forward Euler is simple and useful for understanding the basic idea of numerical simulation. However, it is not highly accurate for long-duration orbital simulations because numerical error accumulates over time.
-
-In the current 400 km Low Earth Orbit simulation, the altitude graph shows an accumulated error of approximately 50 km over about 6,000 seconds.
-
-This behavior is expected because Forward Euler does not conserve orbital energy well over long simulations.
-
-In future versions, the simulator will be improved using more accurate integration methods such as:
-
-* Runge-Kutta 4th order method
-* `scipy.integrate.solve_ivp`
-* More realistic perturbation models
-
-This limitation is intentionally documented to show the difference between a simple educational simulator and a more realistic aerospace simulation tool.
-
----
-
-## Results from Step 2
-
-The initial 2D orbit simulation successfully produced the following results:
-
-| Quantity           |         Value |
-| ------------------ | ------------: |
-| Orbit altitude     |        400 km |
-| Orbit radius       |      6,771 km |
-| Orbital speed      |     7.67 km/s |
-| Orbital period     |      92.4 min |
-| Integration method | Forward Euler |
-
-The simulation confirms the basic behavior of a CubeSat in Low Earth Orbit. Although the orbit is not perfectly stable due to numerical integration error, the result is sufficient for the first version of the project.
-
----
-
-## Updated Development Roadmap
-
-### Step 1. Project Initialization
-
-Status: Completed
-
-### Step 2. 2D Orbit Simulation
-
-Status: Completed
-
-Implemented:
-
-* Physical constants
-* Initial orbit conditions
-* Forward Euler integration
-* Orbit trajectory plotting
-* Altitude plotting
-* Speed plotting
-
-### Step 3. Attitude Control
-
-Status: Planned
-
-Next step:
-
-* Implement a simplified 1-axis attitude dynamics model
-* Implement a PID controller
-* Simulate attitude stabilization
-* Generate attitude response and control input plots
-
-### Step 4. Telemetry Generation
-
-Status: Planned
-
-### Step 5. Anomaly Detection
-
-Status: Planned
-
-### Step 6. Streamlit Dashboard
-
-Status: Planned
-
-### Step 7. Documentation and Portfolio Refinement
-
-Status: Planned
-
----
-
-## Planned Features
-
-### 1. Orbit Simulation
-
-A 2D orbital simulator will be implemented to calculate the CubeSat's position, velocity, altitude, and trajectory over time.
-
-Planned outputs:
-
-* Orbit plot
-* Altitude over time
-* Speed over time
-
----
-
-### 2. Attitude Control
-
-A simplified 1-axis attitude control model will be implemented using a PID controller.
-
-Planned outputs:
-
-* Attitude angle response
-* Attitude error
-* Control input over time
-
----
-
-### 3. Telemetry Generation
-
-The simulation results will be converted into telemetry-like data.
-
-Planned telemetry data includes:
-
-* Time
-* Position
-* Altitude
-* Speed
-* Attitude angle
-* Attitude error
-* Battery level
-* Temperature
-* Sunlight condition
-* Communication availability
-* Warning status
-
----
-
-### 4. Anomaly Detection
-
-A simple rule-based anomaly detection module will be added.
-
-Example warning conditions:
-
-* Low battery
-* Large attitude error
-* Abnormal temperature
-* Communication loss
-
----
-
-### 5. Digital Twin Dashboard
-
-A Streamlit dashboard will be developed to visualize the simulated CubeSat state.
-
-The dashboard will include:
-
-* Current satellite status
-* Orbit visualization
-* Altitude graph
-* Attitude response graph
-* Battery and temperature graphs
-* Warning panel
+## Features
+
+### Orbit Simulation
+- 2D Keplerian orbit propagation using Newtonian gravity
+- Two numerical integrators: Forward Euler and Runge-Kutta 4 (RK4)
+- Side-by-side integrator comparison with altitude drift and energy conservation metrics
+- Real TLE data support via Celestrak API (ISS, DOVE-1, LEMUR-2, or any NORAD ID)
+- Graceful offline fallback when network is unavailable
+
+### Attitude Control
+- 1-axis rigid body rotation dynamics (τ = Iα)
+- Discrete-time PID controller with anti-windup and output limiting
+- Both Euler and RK4 integration for the attitude dynamics
+- Disturbance torque modeling (Gaussian noise)
+
+### Telemetry Generation
+- Downsampled telemetry from orbit and attitude simulation results
+- Battery model: energy balance (solar generation vs. consumption)
+- Temperature model: exponential moving average between sunlit/eclipse states
+- Ground contact model: orbital angle-based communication windows
+
+### Anomaly Detection
+- Rule-based threshold detection for battery, temperature, altitude, and attitude
+- Z-score statistical detection for unexpected deviations
+- Battery discharge trend analysis (consecutive drop detection)
+
+### Streamlit Dashboard
+- Live parameter control: altitude, simulation duration, PID gains
+- Integrator selector for both orbit (RK4/Euler) and attitude (RK4/Euler)
+- TLE satellite presets with live Celestrak fetch toggle
+- 5 tabs: Orbit, Integrator Comparison, Attitude, Telemetry, Anomaly
 
 ---
 
 ## Tech Stack
 
-* Python
-* NumPy
-* SciPy
-* Pandas
-* Matplotlib
-* Streamlit
-* Plotly
-* python-dotenv
+- **Python 3.9+**
+- `numpy` — numerical simulation
+- `pandas` — telemetry data processing
+- `matplotlib` — result plots
+- `streamlit`, `plotly` — interactive dashboard
+- `sgp4` — TLE parsing and SGP4 orbit propagation
 
 ---
 
 ## Project Structure
 
-```text
+```
 cubesat-mini-digital-twin/
 │
 ├── README.md
@@ -302,22 +116,24 @@ cubesat-mini-digital-twin/
 │
 ├── src/
 │   ├── orbit/
-│   │   ├── orbit_simulator.py
-│   │   └── orbital_constants.py
+│   │   ├── orbital_constants.py      # Physical constants (μ, R_earth)
+│   │   ├── orbit_simulator.py        # Euler + RK4 orbit propagation
+│   │   ├── tle_loader.py             # TLE parsing, 3D→2D projection
+│   │   └── tle_fetcher.py            # Live TLE fetch from Celestrak
 │   │
 │   ├── attitude/
-│   │   ├── attitude_model.py
-│   │   └── pid_controller.py
+│   │   ├── attitude_model.py         # 1-axis rigid body dynamics
+│   │   └── pid_controller.py         # Discrete PID with anti-windup
 │   │
 │   ├── telemetry/
-│   │   ├── telemetry_generator.py
-│   │   └── anomaly_detector.py
+│   │   ├── telemetry_generator.py    # Subsystem telemetry generation
+│   │   └── anomaly_detector.py       # Rule-based + Z-score detection
 │   │
 │   ├── dashboard/
-│   │   └── app.py
+│   │   └── app.py                    # Streamlit dashboard
 │   │
 │   └── utils/
-│       └── plot_utils.py
+│       └── plot_utils.py             # Matplotlib result plots
 │
 ├── data/
 │   └── sample_telemetry.csv
@@ -325,6 +141,8 @@ cubesat-mini-digital-twin/
 ├── results/
 │   ├── orbit_plot.png
 │   ├── altitude_plot.png
+│   ├── speed_plot.png
+│   ├── euler_vs_rk4.png
 │   ├── attitude_response.png
 │   └── dashboard_screenshot.png
 │
@@ -334,68 +152,93 @@ cubesat-mini-digital-twin/
 
 ---
 
-## Development Roadmap
+## Getting Started
 
-### Step 1. Project Initialization
+```bash
+# 1. Clone the repository
+git clone https://github.com/yumina0616/cubesat-mini-digital-twin.git
+cd cubesat-mini-digital-twin
 
-Set up the initial project structure and dependencies.
+# 2. Create virtual environment
+python -m venv venv
+source venv/bin/activate        # macOS/Linux
+# Windows (PowerShell): .\venv\Scripts\Activate.ps1
+# Windows (cmd):        venv\Scripts\activate
 
-Status: Completed
+# 3. Install dependencies
+pip install -r requirements.txt
 
-### Step 2. Orbit Simulation
+# 4. Run simulation and generate result plots
+python main.py
 
-Implement a 2D orbital simulator for a simplified CubeSat.
+# 5. Launch dashboard
+streamlit run src/dashboard/app.py
+```
 
-Status: Planned
+---
 
-### Step 3. Attitude Control
+## Physics Background
 
-Implement a 1-axis attitude model and PID controller.
+### Orbital Mechanics
 
-Status: Planned
+The orbit is propagated by integrating Newton's law of gravitation:
 
-### Step 4. Telemetry Generation
+```
+a = -μ · r / |r|³
+```
 
-Generate telemetry data from orbit and attitude simulation results.
+where `μ = GM_earth = 3.986 × 10¹⁴ m³/s²`.
 
-Status: Planned
+Forward Euler updates the state each timestep as:
 
-### Step 5. Anomaly Detection
+```
+r(t+dt) = r(t) + v(t) · dt
+v(t+dt) = v(t) + a(t) · dt
+```
 
-Add rule-based warning detection for abnormal satellite states.
+RK4 evaluates the derivative four times per step and takes a weighted average, reducing the local truncation error from O(dt²) to O(dt⁵). This is why Euler drifts ~98 km over 100 minutes while RK4 shows no measurable drift.
 
-Status: Planned
+### Attitude Dynamics
 
-### Step 6. Streamlit Dashboard
+Single-axis rotation follows the rotational form of Newton's second law:
 
-Build an interactive dashboard for visualizing CubeSat telemetry.
+```
+α = τ / I
+```
 
-Status: Planned
+where `τ` is the control torque (N·m) and `I` is the moment of inertia (kg·m²). The PID controller computes `τ` each timestep to minimize the error between the current and target attitude angle.
 
-### Step 7. Documentation and Portfolio Refinement
+### TLE Integration
 
-Organize results, screenshots, and explanations for GitHub portfolio use.
+Real satellite TLEs are fetched from [Celestrak](https://celestrak.org) using the GP API:
 
-Status: Planned
+```
+https://celestrak.org/NORAD/elements/gp.php?CATNR=<NORAD_ID>&FORMAT=TLE
+```
+
+The 3D ECI position and velocity are projected onto the 2D XY plane while preserving the orbital radius and speed magnitude. The orbital angular momentum Z-component determines the direction of revolution.
+
+---
+
+## Limitations
+
+- **2D only**: The orbit is projected onto the equatorial plane. Inclination effects are not modeled.
+- **1-axis attitude**: Full 3-axis control would require quaternion-based dynamics.
+- **Simplified subsystems**: Battery, temperature, and communication models are approximations for visualization purposes.
+- **Forward Euler (option)**: Retained for educational comparison with RK4.
 
 ---
 
 ## Future Improvements
 
-Possible future extensions include:
-
-* 3D orbit simulation
-* Real TLE data integration
-* Kalman Filter-based state estimation
-* 3-axis attitude control
-* Ground station visibility analysis
-* ROS 2 integration
-* More realistic thermal and power models
+- 3-axis attitude control with quaternion representation
+- Kalman Filter-based state estimation
+- More realistic perturbation models (J2, drag, solar radiation pressure)
+- Arduino + MPU-6050 hardware-in-the-loop integration
+- Ground station visibility analysis
 
 ---
 
-## Project Purpose
+## Purpose
 
-This project is not intended to be a fully accurate satellite simulator.
-
-Instead, it is a learning project designed to connect software development with aerospace concepts such as GNC, simulation, telemetry, anomaly detection, and digital twin systems.
+This project is not intended to be a production-grade satellite simulator. It is a learning project that connects software engineering with aerospace concepts — built to understand how simulation, control, telemetry, and monitoring systems fit together in a real-world context.
