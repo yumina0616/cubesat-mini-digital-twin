@@ -41,8 +41,6 @@ Thumbs.db
 *.ipynb
 
 # 결과물 (직접 생성하는 파일들 — 트래킹 제외)
-results/*.png
-results/*.jpg
 data/sample_telemetry.csv
 
 # Streamlit 캐시
