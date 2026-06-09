@@ -59,18 +59,41 @@ class OrbitSimulator:
     """
 
     def __init__(self, altitude=DEFAULT_ALTITUDE, dt=DT, sim_time=DEFAULT_SIM_TIME,
-                 method='rk4'):
+                 method='rk4', x0=None, y0=None, vx0=None, vy0=None):
         """
         Args:
-            altitude  (float): 궤도 고도 (m). 기본값 400km
-            dt        (float): 시간 스텝 (s). 기본값 1초
-            sim_time  (float): 전체 시뮬레이션 시간 (s). 기본값 6000초
-            method    (str)  : 수치 적분 방법 'euler' 또는 'rk4'. 기본값 'rk4'
+            altitude  (float): 궤도 고도 (m). x0/y0가 주어지면 무시됨
+            dt        (float): 시간 스텝 (s)
+            sim_time  (float): 전체 시뮬레이션 시간 (s)
+            method    (str)  : 'euler' 또는 'rk4'
+            x0, y0    (float): TLE에서 가져온 초기 위치 (m). None이면 원형 궤도로 자동 설정
+            vx0, vy0  (float): TLE에서 가져온 초기 속도 (m/s). None이면 원형 궤도로 자동 설정
         """
-        self.altitude = altitude
-        self.dt = dt
+        self.dt       = dt
         self.sim_time = sim_time
-        self.method = method
+        self.method   = method
+
+        # TLE 초기 조건이 주어진 경우
+        if x0 is not None and y0 is not None:
+            self._x0  = x0
+            self._y0  = y0
+            self._vx0 = vx0 if vx0 is not None else 0.0
+            self._vy0 = vy0 if vy0 is not None else np.sqrt(MU_EARTH / (np.sqrt(x0**2 + y0**2)))
+            r0 = np.sqrt(x0**2 + y0**2)
+            self.altitude = r0 - EARTH_RADIUS
+            self.r_orbit  = r0
+            self.v_orbit  = np.sqrt(self._vx0**2 + self._vy0**2)
+            self._tle_mode = True
+        else:
+            # 기본 원형 궤도 초기 조건
+            self.altitude  = altitude
+            self.r_orbit   = EARTH_RADIUS + altitude
+            self.v_orbit   = np.sqrt(MU_EARTH / self.r_orbit)
+            self._x0       = self.r_orbit
+            self._y0       = 0.0
+            self._vx0      = 0.0
+            self._vy0      = self.v_orbit
+            self._tle_mode = False
 
         # 궤도 반지름 = 지구 반지름 + 고도
         self.r_orbit = EARTH_RADIUS + altitude
@@ -82,8 +105,12 @@ class OrbitSimulator:
         # 궤도 주기 계산: T = 2π * r / v (초)
         self.period = 2 * np.pi * self.r_orbit / self.v_orbit
 
-        print(f"[OrbitSimulator] 초기화 완료")
-        print(f"  고도     : {altitude/1000:.1f} km")
+        # 궤도 주기
+        self.period = 2 * np.pi * self.r_orbit / np.sqrt(MU_EARTH / self.r_orbit)
+
+        mode_str = "TLE" if self._tle_mode else "circular"
+        print(f"[OrbitSimulator] 초기화 완료 ({mode_str})")
+        print(f"  고도     : {self.altitude/1000:.1f} km")
         print(f"  궤도 반지름: {self.r_orbit/1000:.1f} km")
         print(f"  궤도 속도 : {self.v_orbit:.1f} m/s ({self.v_orbit/1000:.2f} km/s)")
         print(f"  궤도 주기 : {self.period/60:.1f} 분")
@@ -215,11 +242,11 @@ class OrbitSimulator:
         vx   = np.zeros(n_steps)
         vy   = np.zeros(n_steps)
 
-        # 초기 조건
-        x[0]  = self.r_orbit
-        y[0]  = 0.0
-        vx[0] = 0.0
-        vy[0] = self.v_orbit
+        # 초기 조건 (TLE 또는 원형 궤도)
+        x[0]  = self._x0
+        y[0]  = self._y0
+        vx[0] = self._vx0
+        vy[0] = self._vy0
 
         # 적분 방법 선택
         step_fn = self._step_rk4 if self.method == 'rk4' else self._step_euler

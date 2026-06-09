@@ -60,13 +60,33 @@ PLOTLY_LAYOUT = dict(
 
 # ── Simulation runners (cached) ───────────────────────────────────
 @st.cache_data(show_spinner=False)
-def run_orbit(altitude_km, sim_time_min, method):
+def run_orbit(altitude_km, sim_time_min, method, tle_preset, tle_line1, tle_line2):
     from src.orbit.orbit_simulator import OrbitSimulator
-    sim  = OrbitSimulator(altitude=altitude_km * 1000,
-                          sim_time=sim_time_min * 60,
-                          method=method)
-    data = sim.run()
-    return data, sim
+    from src.orbit.tle_loader import TLELoader, PRESET_TLES
+
+    if tle_preset == "None (manual altitude)":
+        sim  = OrbitSimulator(altitude=altitude_km * 1000,
+                              sim_time=sim_time_min * 60,
+                              method=method)
+        data = sim.run()
+        tle_info = None
+    else:
+        # Use live-fetched lines if available, otherwise fall back to preset
+        if tle_line1 and tle_line2:
+            loader = TLELoader.from_string(tle_preset, tle_line1, tle_line2)
+        else:
+            loader = TLELoader.from_preset(tle_preset)
+        ic   = loader.get_initial_conditions()
+        sim  = OrbitSimulator(
+            altitude=ic['altitude_2d'],
+            sim_time=ic['period_min'] * 60,
+            method=method,
+            x0=ic['x0'], y0=ic['y0'],
+            vx0=ic['vx0'], vy0=ic['vy0'],
+        )
+        data     = sim.run()
+        tle_info = ic
+    return data, sim, tle_info
 
 
 @st.cache_data(show_spinner=False)
@@ -84,11 +104,12 @@ def run_attitude(initial_angle, kp, ki, kd, att_method='rk4'):
 
 
 @st.cache_data(show_spinner=False)
-def run_telemetry(altitude_km, sim_time_min, method, initial_angle, kp, ki, kd):
+def run_telemetry(altitude_km, sim_time_min, method, tle_preset, tle_line1, tle_line2,
+                  initial_angle, kp, ki, kd, att_method):
     from src.telemetry.telemetry_generator import TelemetryGenerator
     from src.telemetry.anomaly_detector import AnomalyDetector
-    orbit_data, _ = run_orbit(altitude_km, sim_time_min, method)
-    attitude_data, _ = run_attitude(initial_angle, kp, ki, kd)
+    orbit_data, _, _ = run_orbit(altitude_km, sim_time_min, method, tle_preset, tle_line1, tle_line2)
+    attitude_data, _ = run_attitude(initial_angle, kp, ki, kd, att_method)
     gen     = TelemetryGenerator(orbit_data, attitude_data, sample_interval=10)
     df      = gen.generate()
     anomaly = AnomalyDetector(df).detect_all()
@@ -103,8 +124,58 @@ with st.sidebar:
     st.divider()
 
     st.subheader("Orbit Parameters")
-    altitude_km  = st.slider("Altitude (km)",      200, 800, 400, 10)
-    sim_time_min = st.slider("Sim Duration (min)",  30, 200, 100, 10)
+    tle_options = ["None (manual altitude)", "ISS", "DOVE-1", "LEMUR-2", "CUSTOM"]
+    tle_preset  = st.selectbox("Satellite Preset (TLE)", tle_options, index=0)
+
+    tle_line1, tle_line2 = "", ""
+    if tle_preset == "None (manual altitude)":
+        altitude_km  = st.slider("Altitude (km)",      200, 800, 400, 10)
+        sim_time_min = st.slider("Sim Duration (min)",  30, 200, 100, 10)
+    elif tle_preset == "CUSTOM":
+        st.caption("Enter TLE lines manually or fetch by NORAD ID:")
+        norad_input = st.text_input("NORAD ID (optional)", placeholder="e.g. 25544 for ISS")
+        if norad_input and st.button("Fetch from Celestrak", type="secondary"):
+            try:
+                from src.orbit.tle_fetcher import TLEFetcher
+                fetched = TLEFetcher.fetch_by_norad_id(int(norad_input))
+                st.session_state['fetched_tle'] = fetched
+                st.success(f"Fetched: {fetched['name']} ({fetched['source']})")
+            except Exception as e:
+                st.error(f"Fetch failed: {e}")
+
+        if 'fetched_tle' in st.session_state:
+            f = st.session_state['fetched_tle']
+            tle_line1 = st.text_input("TLE Line 1", value=f['line1'])
+            tle_line2 = st.text_input("TLE Line 2", value=f['line2'])
+        else:
+            tle_line1 = st.text_input("TLE Line 1")
+            tle_line2 = st.text_input("TLE Line 2")
+        altitude_km  = 400
+        sim_time_min = 100
+    else:
+        # Preset — attempt live fetch from Celestrak
+        fetch_live = st.toggle("Fetch live TLE from Celestrak", value=True)
+        if fetch_live:
+            from src.orbit.tle_fetcher import TLEFetcher
+            NORAD_MAP = {"ISS": 25544, "DOVE-1": 39418, "LEMUR-2": 41789}
+            try:
+                fetched  = TLEFetcher.fetch_by_norad_id(NORAD_MAP[tle_preset])
+                tle_line1 = fetched['line1']
+                tle_line2 = fetched['line2']
+                src_label = fetched['source']
+            except Exception:
+                from src.orbit.tle_loader import PRESET_TLES
+                tle_line1 = PRESET_TLES[tle_preset]['line1']
+                tle_line2 = PRESET_TLES[tle_preset]['line2']
+                src_label = "offline cache"
+            st.caption(f"TLE source: **{src_label}**")
+        else:
+            from src.orbit.tle_loader import PRESET_TLES
+            tle_line1 = PRESET_TLES[tle_preset]['line1']
+            tle_line2 = PRESET_TLES[tle_preset]['line2']
+            st.caption(PRESET_TLES[tle_preset]["description"])
+        altitude_km  = 400
+        sim_time_min = 100
 
     st.divider()
     st.subheader("Integration Method")
@@ -141,7 +212,11 @@ if "sim_done" not in st.session_state:
 
 if run_btn:
     st.session_state.sim_done = True
-    st.session_state.params = (altitude_km, sim_time_min, method, initial_angle, kp, ki, kd, att_method)
+    st.session_state.params = (
+        altitude_km, sim_time_min, method,
+        tle_preset, tle_line1, tle_line2,
+        initial_angle, kp, ki, kd, att_method
+    )
 
 # ════════════════════════════════════════════════════════════════════
 # Main
@@ -153,21 +228,24 @@ if not st.session_state.sim_done:
     st.stop()
 
 p = st.session_state.params
-altitude_km, sim_time_min, method, initial_angle, kp, ki, kd, att_method = p
+altitude_km, sim_time_min, method, tle_preset, tle_line1, tle_line2, \
+    initial_angle, kp, ki, kd, att_method = p
 
 with st.spinner("Running simulation..."):
-    orbit_data, sim         = run_orbit(altitude_km, sim_time_min, method)
-    attitude_data, pid_data = run_attitude(initial_angle, kp, ki, kd, att_method)
-    df, anomaly             = run_telemetry(*p[:7])
+    orbit_data, sim, tle_info = run_orbit(altitude_km, sim_time_min, method,
+                                          tle_preset, tle_line1, tle_line2)
+    attitude_data, pid_data   = run_attitude(initial_angle, kp, ki, kd, att_method)
+    df, anomaly               = run_telemetry(*p)
 
 # ── KPI cards ─────────────────────────────────────────────────────
 c1, c2, c3, c4, c5, c6 = st.columns(6)
-c1.metric("Altitude",        f"{altitude_km} km")
-c2.metric("Orbit Integrator", method.upper())
-c3.metric("Att. Integrator",  att_method.upper())
-c4.metric("Avg Battery",     f"{df['battery_pct'].mean():.1f}%")
-c5.metric("GS Contact",      f"{df['ground_contact'].sum()} pts")
-c6.metric("Anomalies",       f"{anomaly['summary']['anomaly_rows']} pts",
+display_alt = f"{tle_info['altitude_2d']/1000:.0f} km" if tle_info else f"{altitude_km} km"
+c1.metric("Altitude",         display_alt)
+c2.metric("Satellite",        tle_preset if tle_preset != "None (manual altitude)" else "Manual")
+c3.metric("Orbit Integrator", method.upper())
+c4.metric("Att. Integrator",  att_method.upper())
+c5.metric("GS Contact",       f"{df['ground_contact'].sum()} pts")
+c6.metric("Anomalies",        f"{anomaly['summary']['anomaly_rows']} pts",
           delta=f"{anomaly['summary']['anomaly_rate']:.1f}%",
           delta_color="inverse")
 
@@ -224,6 +302,13 @@ with tab1:
         f"Orbital radius: **{sim.r_orbit/1000:.0f} km** | "
         f"Integrator: **{method.upper()}**"
     )
+    if tle_info:
+        st.info(
+            f"TLE source: **{tle_info['name']}** | "
+            f"Inclination: **{tle_info['inclination']:.1f}°** | "
+            f"Orbital period: **{tle_info['period_min']:.1f} min** | "
+            f"Note: 3D orbit projected to 2D (XY plane)"
+        )
 
 
 # ════════ TAB 2: INTEGRATOR COMPARISON ═══════════════════════════
@@ -232,8 +317,8 @@ with tab2:
     st.caption("Both simulations use identical initial conditions. Only the integration method differs.")
 
     with st.spinner("Running both integrators..."):
-        euler_data, _ = run_orbit(altitude_km, sim_time_min, 'euler')
-        rk4_data,   _ = run_orbit(altitude_km, sim_time_min, 'rk4')
+        euler_data, _, _ = run_orbit(altitude_km, sim_time_min, 'euler', "None (manual altitude)", "", "")
+        rk4_data,   _, _ = run_orbit(altitude_km, sim_time_min, 'rk4',   "None (manual altitude)", "", "")
 
     t_euler = euler_data['time'] / 60
     t_rk4   = rk4_data['time']  / 60
